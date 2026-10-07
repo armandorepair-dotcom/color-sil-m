@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Colorea por Sílabas Educativo - Móvil & Tablet</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Canvas Confetti CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  
+  <!-- Google Fonts: Fredoka & Quicksand para estética infantil y legible -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Quicksand:wght@600;700&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      font-family: 'Fredoka', 'Quicksand', sans-serif;
+      /* Optimización táctil para móviles y tablets */
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%);
+      overflow-x: hidden;
+    }
+
+    /* Trazos e interactividad de las regiones SVG */
+    .color-region {
+      cursor: pointer;
+      stroke: #334155;
+      stroke-width: 2.5;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+      transition: transform 0.15s ease, filter 0.15s ease, fill 0.3s ease;
+    }
+
+    .color-region:hover, .color-region:active {
+      filter: brightness(1.15) drop-shadow(0px 0px 6px rgba(59, 130, 246, 0.6));
+    }
+
+    /* Animaciones suaves */
+    @keyframes pulse-gentle {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+    }
+
+    .active-palette-item {
+      animation: pulse-gentle 1.8s infinite ease-in-out;
+      ring: 4px solid #f59e0b;
+    }
+
+    /* Custom Scrollbar suave para la paleta móvil */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Pantalla completa para el canvas SVG móvil */
+    .svg-container {
+      width: 100%;
+      max-height: 52vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    @media (min-height: 700px) and (min-width: 768px) {
+      .svg-container {
+        max-height: 65vh;
+      }
+    }
+
+    .svg-container svg {
+      width: 100%;
+      height: 100%;
+      max-height: 52vh;
+      object-fit: contain;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between text-slate-800">
+
+  <!-- Modal de desbloqueo de Audio para Navegadores Móviles (iOS/Android) -->
+  <div id="audio-modal" class="fixed inset-0 z-50 bg-slate-900/85 backdrop-blur-sm flex flex-col items-center justify-center p-4 transition-opacity duration-300">
+    <div class="bg-white rounded-3xl p-6 md:p-8 max-w-sm w-full text-center shadow-2xl border-4 border-yellow-400 transform transition-transform scale-100">
+      <div class="text-6xl mb-3 animate-bounce">🎨</div>
+      <h1 class="text-2xl md:text-3xl font-bold text-slate-800 mb-2">Colorea por Sílabas</h1>
+      <p class="text-slate-600 mb-6 text-sm md:text-base font-semibold">¡Aprende las sílabas jugando y coloreando!</p>
+      <button id="start-app-btn" class="w-full py-4 px-6 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-bold text-xl rounded-2xl shadow-lg shadow-teal-500/30 transform active:scale-95 transition-all flex items-center justify-center gap-2">
+        <span>¡EMPEZAR A JUGAR!</span>
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Encabezado Principal Responsivo -->
+  <header class="bg-white/90 backdrop-blur-md shadow-sm border-b border-sky-100 px-3 py-2 md:px-6 md:py-3 flex-none">
+    <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-2">
+      
+      <!-- Logo y Título -->
+      <div class="flex items-center gap-2">
+        <span class="text-2xl md:text-3xl">🖍️</span>
+        <div>
+          <h1 class="text-lg md:text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent leading-tight">
+            Colorea por Sílabas
+          </h1>
+          <p class="text-xs text-slate-500 hidden sm:block font-semibold">Aprende jugando con sílabas y colores</p>
+        </div>
+      </div>
+
+      <!-- Marcador de Aciertos y Errores (Tactil) -->
+      <div class="flex items-center gap-2 md:gap-3">
+        <div class="flex items-center gap-1 bg-emerald-100/80 text-emerald-800 px-3 py-1.5 rounded-full text-xs md:text-sm font-bold shadow-sm">
+          <span class="text-base">✨</span>
+          <span>Aciertos:</span>
+          <span id="score-hits" class="text-base font-black text-emerald-600">0</span>
+        </div>
+        
+        <div class="flex items-center gap-1 bg-rose-100/80 text-rose-800 px-3 py-1.5 rounded-full text-xs md:text-sm font-bold shadow-sm">
+          <span class="text-base">💡</span>
+          <span>Intentos:</span>
+          <span id="score-misses" class="text-base font-black text-rose-600">0</span>
+        </div>
+
+        <button id="btn-toggle-audio" class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full transition-colors active:scale-90" title="Activar/Desactivar Voz">
+          <svg id="icon-audio-on" class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+          <svg id="icon-audio-off" class="w-5 h-5 text-slate-400 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Selector de Dibujos (Pestañas Táctiles) -->
+  <nav class="bg-sky-100/60 border-b border-sky-200/60 py-2 px-3 flex-none">
+    <div class="max-w-6xl mx-auto flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+      <span class="text-xs font-bold text-sky-800 uppercase tracking-wider shrink-0 mr-1 hidden sm:inline">Dibujo:</span>
+      <div id="drawing-tabs" class="flex gap-2 w-full md:w-auto">
+        <!-- Generado dinámicamente -->
+      </div>
+    </div>
+  </nav>
+
+  <!-- Contenido Principal: Canvas y Paleta Adaptativa -->
+  <main class="flex-1 max-w-6xl w-full mx-auto p-2 md:p-4 flex flex-col md:grid md:grid-cols-12 gap-3 md:gap-6 justify-center items-center">
+    
+    <!-- ÁREA DEL DIBUJO SVG (Arriba en celular, Izquierda en tablet/desktop) -->
+    <section class="w-full md:col-span-7 lg:col-span-8 flex flex-col items-center justify-center bg-white rounded-3xl p-2 md:p-6 shadow-md border border-slate-100 relative">
+      
+      <!-- Banner interactivo de instrucción superior -->
+      <div class="w-full flex items-center justify-between mb-2 px-2">
+        <h2 id="current-drawing-title" class="text-base md:text-xl font-bold text-slate-800">
+          Cargando...
+        </h2>
+        <button id="btn-reset" class="text-xs md:text-sm bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-full font-bold transition-all active:scale-95 flex items-center gap-1">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Reiniciar
+        </button>
+      </div>
+
+      <!-- Contenedor adaptativo SVG -->
+      <div id="svg-canvas-wrapper" class="svg-container relative flex items-center justify-center w-full">
+        <!-- Aquí se inyecta la ilustración SVG -->
+      </div>
+
+      <!-- Indicador visual flotante de progreso -->
+      <div class="mt-2 w-full max-w-md bg-slate-100 rounded-full h-3 overflow-hidden border border-slate-200">
+        <div id="progress-bar" class="bg-gradient-to-r from-emerald-400 to-teal-500 h-full w-0% transition-all duration-300"></div>
+      </div>
+    </section>
+
+    <!-- PALETA DE SÍLABAS Y COLORES (Abajo en celular, Derecha en tablet/desktop) -->
+    <section class="w-full md:col-span-5 lg:col-span-4 flex flex-col gap-3">
+      
+      <!-- Caja con instrucción y Sílaba activa -->
+      <div class="bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-3xl p-4 shadow-md text-center flex flex-col items-center justify-center relative overflow-hidden">
+        <span class="text-xs md:text-sm uppercase tracking-wider text-indigo-100 font-bold">1. Selecciona un color / sílaba:</span>
+        
+        <div id="selected-syllables-display" class="my-1 flex items-center gap-3">
+          <span id="active-color-dot" class="w-6 h-6 rounded-full border-2 border-white shadow-inner" style="background-color: #cbd5e1;"></span>
+          <span id="active-syllable-text" class="text-2xl md:text-3xl font-black tracking-wide drop-shadow-sm">
+            ¡Toca un color!
+          </span>
+          <button id="btn-speak-current" class="p-2 bg-white/20 hover:bg-white/30 rounded-full text-white transition-all active:scale-90" title="Repetir audio">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15.536 8.464a5 5 0 010 7.072M12 6v12m-3-9H6a1 1 0 00-1 1v4a1 1 0 001 1h3l4 4V5l-4 4z"/></svg>
+          </button>
+        </div>
+
+        <span class="text-xs text-indigo-100 font-medium">2. Toca la parte correspondiente en el dibujo</span>
+      </div>
+
+      <!-- Botones de la Paleta (Optimizados para pulgares y dedos móviles) -->
+      <div class="bg-white rounded-3xl p-3 md:p-4 shadow-md border border-slate-100">
+        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 text-center md:text-left">
+          Paleta de Sílabas
+        </h3>
+
+        <!-- Grid/Flex responsivo con botones táctiles grandes (>48px de alto) -->
+        <div id="palette-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 gap-2.5 max-h-56 md:max-h-80 overflow-y-auto no-scrollbar p-1">
+          <!-- Botones de la paleta dinámicos -->
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Pie de página suave -->
+  <footer class="py-2 px-4 text-center text-xs text-slate-500 font-semibold border-t border-slate-200/50 bg-white/50 flex-none">
+    Colorea por Sílabas Educativo &copy; 2026 &bull; Optimizado para Móviles y Tablets
+  </footer>
+
+  <!-- JAVASCRIPT DEL JUEGO -->
+  <script>
+    // --- ESTADO Y DATOS DE LA APLICACIÓN ---
+    let audioContext = null;
+    let audioEnabled = true;
+    let currentDrawingIndex = 0;
+    let selectedSyllableData = null; // { syllable, color, name }
+    let scoreHits = 0;
+    let scoreMisses = 0;
+
+    // Pronunciación de sílabas corregida para Synth Latino
+    const PHONETIC_MAP = {
+      'ma': 'má', 'me': 'mé', 'mi': 'mí', 'mo': 'mó', 'mu': 'mú',
+      'sa': 'sá', 'se': 'sé', 'si': 'sí', 'so': 'só', 'su': 'sú',
+      'la': 'lá', 'le': 'lé', 'li': 'lí', 'lo': 'ló', 'lu': 'lú',
+      'pa': 'pá', 'pe': 'pé', 'pi': 'pí', 'po': 'pó', 'pu': 'pú',
+      'ta': 'tá', 'te': 'té', 'ti': 'tí', 'to': 'tó', 'tu': 'tú'
+    };
+
+    // Colección de Dibujos SVG con Regiones y Sílabas
+    const DRAWINGS = [
+      {
+        id: 'sol-flor',
+        title: 'Sol y Flor Sonriente',
+        palette: [
+          { syllable: 'mo', color: '#facc15', label: 'Amarillo' },
+          { syllable: 'ma', color: '#f97316', label: 'Naranja' },
+          { syllable: 'me', color: '#ec4899', label: 'Rosa' },
+          { syllable: 'mi', color: '#22c55e', label: 'Verde' },
+          { syllable: 'mu', color: '#3b82f6', label: 'Azul' }
+        ],
+        svg: `
+          <svg viewBox="0 0 500 500" class="w-full h-full">
+            <!-- Cielo de Fondo -->
+            <rect x="10" y="10" width="480" height="480" rx="30" fill="#f0f9ff" stroke="#bae6fd" stroke-width="4"/>
+            
+            <!-- Rayos del Sol (mo) -->
+            <g>
+              <path class="color-region" data-syllable="mo" fill="#ffffff" d="M110 50 L130 90 L110 80 Z"/>
+              <path class="color-region" data-syllable="mo" fill="#ffffff" d="M170 30 L175 80 L160 70 Z"/>
+              <path class="color-region" data-syllable="mo" fill="#ffffff" d="M230 40 L220 85 L210 70 Z"/>
+              <path class="color-region" data-syllable="mo" fill="#ffffff" d="M50 110 L90 125 L75 110 Z"/>
+              <path class="color-region" data-syllable="mo" fill="#ffffff" d="M250 100 L210 120 L220 105 Z"/>
+            </g>
+
+            <!-- Centro Sol (mo) -->
+            <circle class="color-region" data-syllable="mo" fill="#ffffff" cx="130" cy="130" r="55"/>
+            <text x="130" y="125" text-anchor="middle" font-size="22" font-weight="bold" fill="#475569" pointer-events="none">mo</text>
+            <!-- Cara Feliz Sol -->
+            <circle cx="115" cy="115" r="5" fill="#334155"/>
+            <circle cx="145" cy="115" r="5" fill="#334155"/>
+            <path d="M115 138 Q130 152 145 138" fill="none" stroke="#334155" stroke-width="3" stroke-linecap="round"/>
+
+            <!-- Tallo y Hojas (mi) -->
+            <path class="color-region" data-syllable="mi" fill="#ffffff" d="M280 260 Q285 360 280 440 L295 440 Q300 360 295 260 Z"/>
+            <text x="290" y="370" text-anchor="middle" font-size="18" font-weight="bold" fill="#475569" pointer-events="none">mi</text>
+
+            <path class="color-region" data-syllable="mi" fill="#ffffff" d="M285 380 Q220 360 200 330 Q250 330 285 365 Z"/>
+            <text x="240" y="350" text-anchor="middle" font-size="16" font-weight="bold" fill="#475569" pointer-events="none">mi</text>
+
+            <path class="color-region" data-syllable="mi" fill="#ffffff" d="M292 350 Q360 330 380 300 Q330 300 292 335 Z"/>
+            <text x="340" y="320" text-anchor="middle" font-size="16" font-weight="bold" fill="#475569" pointer-events="none">mi</text>
+
+            <!-- Pétalos Flor (me, ma, mu) -->
+            <circle class="color-region" data-syllable="me" fill="#ffffff" cx="290" cy="150" r="38"/>
+            <text x="290" y="145" text-anchor="middle" font-size="20" font-weight="bold" fill="#475569" pointer-events="none">me</text>
+
+            <circle class="color-region" data-syllable="ma" fill="#ffffff" cx="360" cy="190" r="38"/>
+            <text x="360" y="185" text-anchor="middle" font-size="20" font-weight="bold" fill="#475569" pointer-events="none">ma</text>
+
+            <circle class="color-region" data-syllable="me" fill="#ffffff" cx="370" cy="270" r="38"/>
+            <text x="370" y="265" text-anchor="middle" font-size="20" font-weight="bold" fill="#475569" pointer-events="none">me</text>
+
+            <circle class="color-region" data-syllable="ma" fill="#ffffff" cx="290" cy="310" r="38"/>
+            <text x="290" y="305" text-anchor="middle" font-size="20" font-weight="bold" fill="#475569" pointer-events="none">ma</text>
+
+            <circle class="color-region" data-syllable="me" fill="#ffffff" cx="210" cy="270" r="38"/>
+            <text x="210" y="265" text-anchor="middle" font-size="20" font-weight="bold" fill="#475569" pointer-events="none">me</text>
+
+            <circle class="color-region" data-syllable="ma" fill="#ffffff" cx="220" cy="190" r="38"/>
+            <text x="220" y="185" text-anchor="middle" font-size="20" font-weight="bold" fill="#475569" pointer-events="none">ma</text>
+
+            <!-- Centro Flor (mu) -->
+            <circle class="color-region" data-syllable="mu" fill="#ffffff" cx="290" cy="230" r="42"/>
+            <text x="290" y="225" text-anchor="middle" font-size="22" font-weight="bold" fill="#475569" pointer-events="none">mu</text>
+            <circle cx="275" cy="220" r="4" fill="#334155"/>
+            <circle cx="305" cy="220" r="4" fill="#334155"/>
+            <path d="M278 238 Q290 248 302 238" fill="none" stroke="#334155" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+        `
+      },
+      {
+        id: 'osito',
+        title: 'Osito Cariñoso',
+        palette: [
+          { syllable: 'sa', color: '#b45309', label: 'Café' },
+          { syllable: 'se', color: '#f43f5e', label: 'Rojo' },
+          { syllable: 'si', color: '#fbbf24', label: 'Amarillo' },
+          { syllable: 'so', color: '#fbcfe8', label: 'Rosa Claro' },
+          { syllable: 'su', color: '#38bdf8', label: 'Celeste' }
+        ],
+        svg: `
+          <svg viewBox="0 0 500 500" class="w-full h-full">
+            <rect x="10" y="10" width="480" height="480" rx="30" fill="#fdf4ff" stroke="#f5d0fe" stroke-width="4"/>
+            
+            <!-- Orejas Exteriotes (sa) -->
+            <circle class="color-region" data-syllable="sa" fill="#ffffff" cx="150" cy="120" r="45"/>
+            <text x="150" y="110" text-anchor="middle" font-size="20" font-weight="bold" fill="#475569" pointer-events="none">sa</text>
+
+            <circle class="color-region" data-syllable="sa" fill="#ffffff" cx="350" cy="120" r="45"/>
+            <text x="350" y="110" text-anchor="middle" font-size="20" font-weight="bold" fill="#475569" pointer-events="none">sa</text>
+
+            <!-- Orejas Interiores (so) -->
+            <circle class="color-region" data-syllable="so" fill="#ffffff" cx="150" cy="120" r="25"/>
+            <text x="150" y="125" text-anchor="middle" font-size="16" font-weight="bold" fill="#475569" pointer-events="none">so</text>
+
+            <circle class="color-region" data-syllable="so" fill="#ffffff" cx="350" cy="120" r="25"/>
+            <text x="350" y="125" text-anchor="middle" font-size="16" font-weight="bold" fill="#475569" pointer-events="none">so</text>
+
+            <!-- Cabeza Oso (sa) -->
+            <circle class="color-region" data-syllable="sa" fill="#ffffff" cx="250" cy="210" r="100"/>
+            <text x="250" y="150" text-anchor="middle" font-size="24" font-weight="bold" fill="#475569" pointer-events="none">sa</text>
+
+            <!-- Hocico (so) -->
+            <ellipse class="color-region" data-syllable="so" fill="#ffffff" cx="250" cy="235" rx="40" ry="30"/>
+            <text x="250" y="255" text-anchor="middle" font-size="18" font-weight="bold" fill="#475569" pointer-events="none">so</text>
+            <ellipse cx="250" cy="220" rx="14" ry="10" fill="#334155"/>
+            <circle cx="215" cy="195" r="7" fill="#334155"/>
+            <circle cx="285" cy="195" r="7" fill="#334155"/>
+
+            <!-- Cuerpo (sa) -->
+            <path class="color-region" data-syllable="sa" fill="#ffffff" d="M170 290 Q250 270 330 290 Q360 410 340 440 L160 440 Q140 410 170 290 Z"/>
+            <text x="250" y="340" text-anchor="middle" font-size="24" font-weight="bold" fill="#475569" pointer-events="none">sa</text>
+
+            <!-- Corazón en Pecho (se) -->
+            <path class="color-region" data-syllable="se" fill="#ffffff" d="M250 390 C250 390 210 350 210 325 C210 305 230 295 250 315 C270 295 290 305 290 325 C290 350 250 390 250 390 Z"/>
+            <text x="250" y="340" text-anchor="middle" font-size="18" font-weight="bold" fill="#475569" pointer-events="none">se</text>
+
+            <!-- Fondo / Estrellas (su, si) -->
+            <polygon class="color-region" data-syllable="si" fill="#ffffff" points="80,50 90,75 115,75 95,90 102,115 80,100 58,115 65,90 45,75 70,75"/>
+            <text x="80" y="85" text-anchor="middle" font-size="14" font-weight="bold" fill="#475569" pointer-events="none">si</text>
+
+            <polygon class="color-region" data-syllable="si" fill="#ffffff" points="420,60 428,80 450,80 432,92 438,112 420,100 402,112 408,92 390,80 412,80"/>
+            <text x="420" y="92" text-anchor="middle" font-size="14" font-weight="bold" fill="#475569" pointer-events="none">si</text>
+
+            <!-- Fondo Bajo (su) -->
+            <rect class="color-region" data-syllable="su" fill="#ffffff" x="30" y="420" width="100" height="40" rx="10"/>
+            <text x="80" y="445" text-anchor="middle" font-size="18" font-weight="bold" fill="#475569" pointer-events="none">su</text>
+
+            <rect class="color-region" data-syllable="su" fill="#ffffff" x="370" y="420" width="100" height="40" rx="10"/>
+            <text x="420" y="445" text-anchor="middle" font-size="18" font-weight="bold" fill="#475569" pointer-events="none">su</text>
+          </svg>
+        `
+      },
+      {
+        id: 'cohete',
+        title: 'Cohete Espacial',
+        palette: [
+          { syllable: 'la', color: '#ef4444', label: 'Rojo' },
+          { syllable: 'le', color: '#eab308', label: 'Amarillo' },
+          { syllable: 'li', color: '#06b6d4', label: 'Cian' },
+          { syllable: 'lo', color: '#6366f1', label: 'Índigo' },
+          { syllable: 'lu', color: '#a855f7', label: 'Púrpura' }
+        ],
+        svg: `
+          <svg viewBox="0 0 500 500" class="w-full h-full">
+            <rect x="10" y="10" width="480" height="480" rx="30" fill="#0f172a" stroke="#1e293b" stroke-width="4"/>
+
+            <!-- Fuego de Propulsión (le, la) -->
+            <path class="color-region" data-syllable="la" fill="#ffffff" d="M210 380 L250 470 L290 380 Z"/>
+            <text x="250" y="420" text-anchor="middle" font-size="20" font-weight="bold" fill="#475569" pointer-events="none">la</text>
+
+            <path class="color-region" data-syllable="le" fill="#ffffff" d="M225 380 L250 440 L275 380 Z"/>
+            <text x="250" y="405" text-anchor="middle" font-size="16" font-weight="bold" fill="#475569" pointer-events="none">le</text>
+
+            <!-- Aletas Laterales (la) -->
+            <path class="color-region" data-syllable="la" fill="#ffffff" d="M180 300 L110 380 L180 370 Z"/>
+            <text x="155" y="355" text-anchor="middle" font-size="20" font-weight="bold" fill="#475569" pointer-events="none">la</text>
+
+            <path class="color-region" data-syllable="la" fill="#ffffff" d="M320 300 L390 380 L320 370 Z"/>
+            <text x="345" y="355" text-anchor="middle" font-size="20" font-weight="bold" fill="#475569" pointer-events="none">la</text>
+
+            <!-- Cuerpo Cohete (li) -->
+            <path class="color-region" data-syllable="li" fill="#ffffff" d="M180 180 Q250 40 320 180 L320 370 L180 370 Z"/>
+            <text x="250" y="300" text-anchor="middle" font-size="26" font-weight="bold" fill="#475569" pointer-events="none">li</text>
+
+            <!-- Punta Cohete (la) -->
+            <path class="color-region" data-syllable="la" fill="#ffffff" d="M195 140 Q250 40 305 140 Z"/>
+            <text x="250" y="110" text-anchor="middle" font-size="20" font-weight="bold" fill="#475569" pointer-events="none">la</text>
+
+            <!-- Ventana Borde y Centro (lu, lo) -->
+            <circle class="color-region" data-syllable="lu" fill="#ffffff" cx="250" cy="200" r="45"/>
+            <text x="250" y="170" text-anchor="middle" font-size="16" font-weight="bold" fill="#475569" pointer-events="none">lu</text>
+
+            <circle class="color-region" data-syllable="lo" fill="#ffffff" cx="250" cy="200" r="30"/>
+            <text x="250" y="205" text-anchor="middle" font-size="20" font-weight="bold" fill="#ffffff" pointer-events="none">lo</text>
+
+            <!-- Planeta Fondo (lu) -->
+            <circle class="color-region" data-syllable="lu" fill="#ffffff" cx="90" cy="100" r="35"/>
+            <text x="90" y="105" text-anchor="middle" font-size="18" font-weight="bold" fill="#475569" pointer-events="none">lu</text>
+          </svg>
+        `
+      },
+      {
+        id: 'monstruo',
+        title: 'Monstruo Divertido',
+        palette: [
+          { syllable: 'pa', color: '#10b981', label: 'Verde' },
+          { syllable: 'pe', color: '#8b5cf6', label: 'Violeta' },
+          { syllable: 'pi', color: '#f97316', label: 'Naranja' },
+          { syllable: 'po', color: '#ec4899', label: 'Rosa' },
+          { syllable: 'pu', color: '#06b6d4', label: 'Turquesa' }
+        ],
+        svg: `
+          <svg viewBox="0 0 500 500" class="w-full h-full">
+            <rect x="10" y="10" width="480" height="480" rx="30" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="4"/>
+
+            <!-- Cuernos (pi) -->
+            <path class="color-region" data-syllable="pi" fill="#ffffff" d="M160 150 Q130 80 100 110 Q140 140 170 170 Z"/>
+            <text x="135" y="125" text-anchor="middle" font-size="18" font-weight="bold" fill="#475569" pointer-events="none">pi</text>
+
+            <path class="color-region" data-syllable="pi" fill="#ffffff" d="M340 150 Q370 80 400 110 Q360 140 330 170 Z"/>
+            <text x="365" y="125" text-anchor="middle" font-size="18" font-weight="bold" fill="#475569" pointer-events="none">pi</text>
+
+            <!-- Cuerpo Principal Monstruo (pa) -->
+            <path class="color-region" data-syllable="pa" fill="#ffffff" d="M140 170 Q250 110 360 170 Q410 280 380 400 Q250 440 120 400 Q90 280 140 170 Z"/>
+            <text x="250" y="170" text-anchor="middle" font-size="28" font-weight="bold" fill="#475569" pointer-events="none">pa</text>
+
+            <!-- Ojo Gigante Exterior (pe) e Interior (pu) -->
+            <circle class="color-region" data-syllable="pe" fill="#ffffff" cx="250" cy="230" r="55"/>
+            <text x="250" y="195" text-anchor="middle" font-size="16" font-weight="bold" fill="#475569" pointer-events="none">pe</text>
+
+            <circle class="color-region" data-syllable="pu" fill="#ffffff" cx="250" cy="235" r="30"/>
+            <text x="250" y="240" text-anchor="middle" font-size="18" font-weight="bold" fill="#ffffff" pointer-events="none">pu</text>
+            <circle cx="250" cy="235" r="12" fill="#1e293b"/>
+            <circle cx="254" cy="231" r="4" fill="#ffffff"/>
+
+            <!-- Boca y Manchas (po) -->
+            <path class="color-region" data-syllable="po" fill="#ffffff" d="M190 310 Q250 370 310 310 Z"/>
+            <text x="250" y="335" text-anchor="middle" font-size="18" font-weight="bold" fill="#475569" pointer-events="none">po</text>
+
+            <!-- Manchas (po) -->
+            <circle class="color-region" data-syllable="po" fill="#ffffff" cx="160" cy="360" r="22"/>
+            <text x="160" y="365" text-anchor="middle" font-size="14" font-weight="bold" fill="#475569" pointer-events="none">po</text>
+
+            <circle class="color-region" data-syllable="po" fill="#ffffff" cx="340" cy="360" r="22"/>
+            <text x="340" y="365" text-anchor="middle" font-size="14" font-weight="bold" fill="#475569" pointer-events="none">po</text>
+          </svg>
+        `
+      },
+      {
+        id: 'barco',
+        title: 'Barco Velero',
+        palette: [
+          { syllable: 'ta', color: '#3b82f6', label: 'Azul' },
+          { syllable: 'te', color: '#f97316', label: 'Naranja' },
+          { syllable: 'ti', color: '#eab308', label: 'Amarillo' },
+          { syllable: 'to', color: '#84cc16', label: 'Verde Lima' },
+          { syllable: 'tu', color: '#06b6d4', label: 'Cian' }
+        ],
+        svg: `
+          <svg viewBox="0 0 500 500" class="w-full h-full">
+            <rect x="10" y="10" width="480" height="480" rx="30" fill="#f0f9ff" stroke="#bae6fd" stroke-width="4"/>
+
+            <!-- Mar / Olas (tu) -->
+            <path class="color-region" data-syllable="tu" fill="#ffffff" d="M20 380 Q80 350 140 380 T260 380 T380 380 T480 380 L480 480 L20 480 Z"/>
+            <text x="250" y="430" text-anchor="middle" font-size="26" font-weight="bold" fill="#475569" pointer-events="none">tu</text>
+
+            <!-- Casco del Barco (te) -->
+            <path class="color-region" data-syllable="te" fill="#ffffff" d="M100 320 L400 320 L350 390 L150 390 Z"/>
+            <text x="250" y="360" text-anchor="middle" font-size="24" font-weight="bold" fill="#475569" pointer-events="none">te</text>
+
+            <!-- Mástil (to) -->
+            <rect class="color-region" data-syllable="to" fill="#ffffff" x="240" y="100" width="15" height="220" rx="4"/>
+            <text x="247" y="220" text-anchor="middle" font-size="14" font-weight="bold" fill="#475569" pointer-events="none">to</text>
+
+            <!-- Vela Grande Izquierda (ta) -->
+            <path class="color-region" data-syllable="ta" fill="#ffffff" d="M230 110 L110 290 L230 290 Z"/>
+            <text x="190" y="230" text-anchor="middle" font-size="24" font-weight="bold" fill="#475569" pointer-events="none">ta</text>
+
+            <!-- Vela Pequeña Derecha (ti) -->
+            <path class="color-region" data-syllable="ti" fill="#ffffff" d="M265 140 L360 290 L265 290 Z"/>
+            <text x="300" y="240" text-anchor="middle" font-size="22" font-weight="bold" fill="#475569" pointer-events="none">ti</text>
+
+            <!-- Sol al fondo (ti) -->
+            <circle class="color-region" data-syllable="ti" fill="#ffffff" cx="80" cy="90" r="40"/>
+            <text x="80" y="95" text-anchor="middle" font-size="20" font-weight="bold" fill="#475569" pointer-events="none">ti</text>
+          </svg>
+        `
+      }
+    ];
+
+    // --- MOTOR DE AUDIO MÓVIL OPTIMIZADO ---
+    function initMobileAudio() {
+      if (!audioContext) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          audioContext = new AudioContextClass();
+        }
+      }
+      if (audioContext && audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+
+      // Preparar voz en SpeechSynthesis con enunciado mudo para desbloquear en iOS Safari
+      if ('speechSynthesis' in window) {
+        const dummyUtterance = new SpeechSynthesisUtterance('');
+        dummyUtterance.volume = 0;
+        window.speechSynthesis.speak(dummyUtterance);
+      }
+    }
+
+    // Reproducir Efecto de Sonido Sintetizado (Acierto / Error)
+    function playBeep(isSuccess) {
+      if (!audioEnabled || !audioContext) return;
+      try {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+
+        const now = audioContext.currentTime;
+        if (isSuccess) {
+          // Arpegio victorioso
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(523.25, now); // C5
+          osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
+          osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+          osc.start(now);
+          osc.stop(now + 0.4);
+        } else {
+          // Tono suave de intento erróneo
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(220, now); // A3
+          osc.frequency.setValueAtTime(180, now + 0.15);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+          osc.start(now);
+          osc.stop(now + 0.35);
+        }
+      } catch (e) {
+        console.warn('Audio Context error:', e);
+      }
+    }
+
+    // Locución en Español Latino con SpeechSynthesis
+    function speakText(text) {
+      if (!audioEnabled || !('speechSynthesis' in window)) return;
+
+      // Cancelar cualquier audio en curso
+      window.speechSynthesis.cancel();
+
+      // Ajustar texto si es sílaba para pronunciación clara
+      const cleanText = text.toLowerCase().trim();
+      const spokenText = PHONETIC_MAP[cleanText] || text;
+
+      const utterance = new SpeechSynthesisUtterance(spokenText);
+      utterance.rate = 0.85; // Velocidad ligeramente pausada para niños
+      utterance.pitch = 1.1; // Tono amigable
+
+      // Buscar voz en español latino o preferente
+      const voices = window.speechSynthesis.getVoices();
+      const esVoice = voices.find(v => v.lang.includes('es-MX') || v.lang.includes('es-US') || v.lang.includes('es-419')) 
+                   || voices.find(v => v.lang.startsWith('es'));
+      
+      if (esVoice) {
+        utterance.voice = esVoice;
+        utterance.lang = esVoice.lang;
+      } else {
+        utterance.lang = 'es-MX';
+      }
+
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // --- LÓGICA Y RENDEREIZADO DEL JUEGO ---
+
+    function initApp() {
+      renderTabs();
+      loadDrawing(0);
+      setupEventListeners();
+    }
+
+    // Renderizar Pestañas de Dibujos
+    function renderTabs() {
+      const container = document.getElementById('drawing-tabs');
+      container.innerHTML = '';
+
+      DRAWINGS.forEach((drawing, index) => {
+        const btn = document.createElement('button');
+        btn.className = `px-3.5 py-2 rounded-2xl text-xs md:text-sm font-bold whitespace-nowrap transition-all duration-200 active:scale-95 flex items-center gap-1.5 shrink-0 ${
+          index === currentDrawingIndex
+            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+            : 'bg-white text-slate-600 hover:bg-sky-50 border border-sky-200/80'
+        }`;
+        btn.innerHTML = `<span>${getEmojiForDrawing(drawing.id)}</span> ${drawing.title}`;
+        
+        btn.addEventListener('pointerdown', () => {
+          if (currentDrawingIndex !== index) {
+            loadDrawing(index);
+          }
+        });
+
+        container.appendChild(btn);
+      });
+    }
+
+    function getEmojiForDrawing(id) {
+      switch(id) {
+        case 'sol-flor': return '🌻';
+        case 'osito': return '🧸';
+        case 'cohete': return '🚀';
+        case 'monstruo': return '👾';
+        case 'barco': return '⛵';
+        default: return '🎨';
+      }
+    }
+
+    // Cargar Dibujo por Índice
+    function loadDrawing(index) {
+      currentDrawingIndex = index;
+      const drawing = DRAWINGS[index];
+
+      // Actualizar Título
+      document.getElementById('current-drawing-title').innerText = `${getEmojiForDrawing(drawing.id)} ${drawing.title}`;
+
+      // Insertar SVG
+      const wrapper = document.getElementById('svg-canvas-wrapper');
+      wrapper.innerHTML = drawing.svg;
+
+      // Renderizar Paleta de Sílabas
+      renderPalette(drawing.palette);
+
+      // Resetear Selección Activa
+      selectedSyllableData = null;
+      updateActiveSyllableUI();
+
+      // Configurar eventos táctiles en las regiones SVG
+      setupSVGRegions();
+
+      // Actualizar Pestañas UI
+      renderTabs();
+
+      // Actualizar Barra de Progreso
+      updateProgressBar();
+    }
+
+    // Renderizar Botones de la Paleta
+    function renderPalette(palette) {
+      const container = document.getElementById('palette-container');
+      container.innerHTML = '';
+
+      palette.forEach((item) => {
+        const btn = document.createElement('button');
+        btn.dataset.syllable = item.syllable;
+        btn.className = `palette-btn relative flex items-center gap-3 p-3 rounded-2xl border-2 border-slate-200 bg-white hover:border-indigo-400 transition-all duration-200 active:scale-95 shadow-sm text-left`;
+
+        btn.innerHTML = `
+          <span class="w-8 h-8 rounded-full border border-black/10 shrink-0 shadow-inner" style="background-color: ${item.color}"></span>
+          <div class="flex flex-col">
+            <span class="text-xl font-extrabold text-slate-800 leading-none">${item.syllable}</span>
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">${item.label}</span>
+          </div>
+        `;
+
+        // Evento Pointer para dispositivos táctiles instantáneos
+        btn.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          selectSyllable(item);
+        });
+
+        container.appendChild(btn);
+      });
+    }
+
+    // Seleccionar Sílaba de la Paleta
+    function selectSyllable(item) {
+      selectedSyllableData = item;
+      updateActiveSyllableUI();
+      speakText(item.syllable);
+    }
+
+    // Actualizar UI según la Sílaba Selección Activa
+    function updateActiveSyllableUI() {
+      const activeText = document.getElementById('active-syllable-text');
+      const activeDot = document.getElementById('active-color-dot');
+      const paletteBtns = document.querySelectorAll('.palette-btn');
+
+      paletteBtns.forEach(btn => {
+        if (selectedSyllableData && btn.dataset.syllable === selectedSyllableData.syllable) {
+          btn.classList.add('ring-4', 'ring-indigo-400', 'border-indigo-500', 'bg-indigo-50/50');
+        } else {
+          btn.classList.remove('ring-4', 'ring-indigo-400', 'border-indigo-500', 'bg-indigo-50/50');
+        }
+      });
+
+      if (selectedSyllableData) {
+        activeText.innerText = `Sílaba "${selectedSyllableData.syllable.toUpperCase()}"`;
+        activeDot.style.backgroundColor = selectedSyllableData.color;
+      } else {
+        activeText.innerText = '¡Toca un color!';
+        activeDot.style.backgroundColor = '#cbd5e1';
+      }
+    }
+
+    // Asignar Eventos a las Regiones SVG
+    function setupSVGRegions() {
+      const regions = document.querySelectorAll('.color-region');
+
+      regions.forEach(region => {
+        // Soporte instantáneo táctil y con stylus mediante pointerdown
+        region.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          handleRegionClick(region);
+        });
+      });
+    }
+
+    // Lógica al tocar una región del dibujo
+    function handleRegionClick(region) {
+      if (!selectedSyllableData) {
+        speakText('Primero elige un color');
+        return;
+      }
+
+      const targetSyllable = region.getAttribute('data-syllable');
+
+      if (targetSyllable === selectedSyllableData.syllable) {
+        // ACIERTO
+        region.setAttribute('fill', selectedSyllableData.color);
+        region.dataset.colored = "true";
+        scoreHits++;
+        document.getElementById('score-hits').innerText = scoreHits;
+
+        playBeep(true);
+        speakText(selectedSyllableData.syllable);
+
+        updateProgressBar();
+        checkVictory();
+
+      } else {
+        // ERROR / INTENTO
+        scoreMisses++;
+        document.getElementById('score-misses').innerText = scoreMisses;
+
+        playBeep(false);
+        speakText('Intenta de nuevo');
+
+        // Efecto visual de rebote/error en la región
+        region.style.transform = 'scale(0.97)';
+        setTimeout(() => {
+          region.style.transform = 'scale(1)';
+        }, 150);
+      }
+    }
+
+    // Actualizar Barra de Progreso
+    function updateProgressBar() {
+      const regions = document.querySelectorAll('.color-region');
+      let coloredCount = 0;
+
+      regions.forEach(r => {
+        if (r.dataset.colored === "true") coloredCount++;
+      });
+
+      const percentage = regions.length > 0 ? (coloredCount / regions.length) * 100 : 0;
+      document.getElementById('progress-bar').style.width = `${percentage}%`;
+    }
+
+    // Verificar si el dibujo se completó
+    function checkVictory() {
+      const regions = document.querySelectorAll('.color-region');
+      const allColored = Array.from(regions).every(r => r.dataset.colored === "true");
+
+      if (allColored) {
+        setTimeout(() => {
+          // Confeti a pantalla completa
+          if (typeof confetti === 'function') {
+            confetti({
+              particleCount: 120,
+              spread: 80,
+              origin: { y: 0.6 }
+            });
+          }
+
+          // Locución victoriosa
+          speakText('¡LO HICISTE! ¡Excelente trabajo!');
+        }, 300);
+      }
+    }
+
+    // Reiniciar Dibujo Actual
+    function resetCurrentDrawing() {
+      const drawing = DRAWINGS[currentDrawingIndex];
+      loadDrawing(currentDrawingIndex);
+      speakText('Dibujo reajustado');
+    }
+
+    // Configurar Eventos Globales de la UI
+    function setupEventListeners() {
+      // Botón Inicio Audio Modal
+      document.getElementById('start-app-btn').addEventListener('click', () => {
+        initMobileAudio();
+        const modal = document.getElementById('audio-modal');
+        modal.classList.add('opacity-0', 'pointer-events-none');
+        setTimeout(() => modal.remove(), 300);
+        
+        // Saludo inicial
+        speakText('¡Bienvenido! Elige un color para empezar.');
+      });
+
+      // Botón Repetir Audio Activo
+      document.getElementById('btn-speak-current').addEventListener('click', () => {
+        if (selectedSyllableData) {
+          speakText(selectedSyllableData.syllable);
+        } else {
+          speakText('Selecciona un color de la paleta');
+        }
+      });
+
+      // Botón Toggle Audio (Mute)
+      document.getElementById('btn-toggle-audio').addEventListener('click', () => {
+        audioEnabled = !audioEnabled;
+        document.getElementById('icon-audio-on').classList.toggle('hidden', !audioEnabled);
+        document.getElementById('icon-audio-off').classList.toggle('hidden', audioEnabled);
+        
+        if (audioEnabled) speakText('Sonido activado');
+      });
+
+      // Botón Reiniciar
+      document.getElementById('btn-reset').addEventListener('click', resetCurrentDrawing);
+
+      // Asegurar que las voces de SpeechSynthesis estén cargadas (Chrome/Safari)
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.onvoiceschanged = () => {
+          window.speechSynthesis.getVoices();
+        };
+      }
+    }
+
+    // Inicializar al cargar el DOM
+    window.onload = function() {
+      initApp();
+    };
+  </script>
+</body>
+</html>
